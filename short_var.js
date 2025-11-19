@@ -7,7 +7,14 @@
         isRunning: true,
         iteration: 0,
         
+        // 交易配置
+        symbol: 'ETH-PERP',      // 监控的交易对符号
+        tradeAmount: '0.5',      // 交易数量
+        targetTPValue: '5',      // 止盈(TP)输入值
+        targetSLValue: '5',      // 止损(SL)输入值
+        
         // 时间配置
+        sleepTime: 20000,        // 每轮循环休眠时间(毫秒) - 6500秒 = 6500000毫秒
         sleepAfterShort: 10000, // 开空仓后休眠时间(毫秒) - 20秒 = 20000毫秒
         waitBeforeRetry: 1000,   // 重试前等待时间(毫秒)
         uiUpdateDelay: 500,      // UI更新等待时间(毫秒)
@@ -242,7 +249,7 @@
         return false;
     }
 
-    function fillTargetTPInput(value) {
+    function fillTargetTPInput(value = CONFIG.targetTPValue) {
         const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input';
         let input;
         try {
@@ -254,17 +261,17 @@
                 null
             ).singleNodeValue;
         } catch (error) {
-            console.warn('解析输入框 XPath 失败:', error);
+            console.warn('解析止盈输入框 XPath 失败:', error);
             return false;
         }
 
         if (!input) {
-            console.warn('未找到输入框');
+            console.warn('未找到止盈输入框');
             return false;
         }
 
         if (input.disabled || input.readOnly) {
-            console.warn('输入框不可编辑');
+            console.warn('止盈输入框不可编辑');
             return false;
         }
 
@@ -273,13 +280,13 @@
         input.value = value ?? '';
         input.dispatchEvent(new Event('input', {bubbles: true}));
         input.dispatchEvent(new Event('change', {bubbles: true}));
-        console.log('已填写输入框:', value);
+        console.log('已填写止盈输入框:', value);
         return true;
     }
 
 
 
-    function fillTargetSLInput(value) {
+    function fillTargetSLInput(value = CONFIG.targetSLValue) {
         const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input';
         let input;
         try {
@@ -291,17 +298,17 @@
                 null
             ).singleNodeValue;
         } catch (error) {
-            console.warn('解析输入框 XPath 失败:', error);
+            console.warn('解析止损输入框 XPath 失败:', error);
             return false;
         }
 
         if (!input) {
-            console.warn('未找到输入框');
+            console.warn('未找到止损输入框');
             return false;
         }
 
         if (input.disabled || input.readOnly) {
-            console.warn('输入框不可编辑');
+            console.warn('止损输入框不可编辑');
             return false;
         }
 
@@ -314,6 +321,40 @@
         return true;
     }
 
+    function fillAmountInput(value) {
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[5]/div[1]/div/span/div/div/input';
+        let input;
+        try {
+            input = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析数量输入框 XPath 失败:', error);
+            return false;
+        }
+
+        if (!input) {
+            console.warn('未找到数量输入框');
+            return false;
+        }
+
+        if (input.disabled || input.readOnly) {
+            console.warn('数量输入框不可编辑');
+            return false;
+        }
+
+        input.value = '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.value = value ?? '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        console.log('已填写数量输入框:', value);
+        return true;
+    }
     function hasEthInVirtualList() {
         const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
         let snapshot;
@@ -338,13 +379,13 @@
         for (let i = 0; i < snapshot.snapshotLength; i++) {
             const span = snapshot.snapshotItem(i);
             const text = span?.textContent?.trim().toUpperCase();
-            if (text && text.includes('ETH-PERP')) {
-                console.log('虚拟列表中包含 ETH-PERP 仓位');
+            if (text && text.includes(CONFIG.symbol)) {
+                console.log(`虚拟列表中包含 ${CONFIG.symbol} 仓位`);
                 return true;
             }
         }
 
-        console.log('虚拟列表未检测到 ETH-PERP 仓位');
+        console.log(`虚拟列表未检测到 ${CONFIG.symbol} 仓位`);
         return false;
     }
 
@@ -379,8 +420,8 @@
                 continue;
             }
 
-            const slFilled = fillTargetSLInput?.('6');
-            const tpFilled = slFilled && fillTargetTPInput?.('6');
+            const slFilled = fillTargetSLInput?.();
+            const tpFilled = slFilled && fillTargetTPInput?.();
             if (!slFilled || !tpFilled) {
                 retryCount++;
                 console.log('止盈/止损输入框填充失败，等待后重试开空仓...');
@@ -473,28 +514,9 @@
     
     async function mainLoop() {
         console.log('自动化交易脚本开始运行...');
-        let isFirstIteration = true;
         
         while (CONFIG.isRunning) {
             CONFIG.iteration++;
-            
-            if (!isFirstIteration) {
-                const now = new Date();
-                const nextMinute = new Date(now);
-                nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-                nextMinute.setSeconds(0);
-                nextMinute.setMilliseconds(0);
-                
-                const waitTime = nextMinute.getTime() - now.getTime();
-                
-                if (waitTime > 0) {
-                    console.log(`[${formatTime(now)}] 等待整点开空仓，剩余 ${Math.round(waitTime/1000)} 秒`);
-                    await sleep(waitTime);
-                }
-            } else {
-                console.log('首次执行，跳过整点等待');
-                isFirstIteration = false;
-            }
             
             const exactTime = new Date();
             const currentTime = formatTime(exactTime);
@@ -503,9 +525,9 @@
             console.log(`[${currentTime}] 第${CONFIG.iteration}次执行 - 开空仓 ${tradingPair}`);
             
             if (hasEthInVirtualList()) {
-                console.log(`[${currentTime}] 检测到现有 ETH 仓位，跳过开仓`);
-                console.log(`[${currentTime}] 开始休眠${CONFIG.sleepAfterShort/1000}秒...`);
-                await sleep(CONFIG.sleepAfterShort);
+                console.log(`[${currentTime}] 检测到现有 ${CONFIG.symbol} 仓位,跳过开仓`);
+                console.log(`[${currentTime}] 开始休眠${CONFIG.sleepTime/1000}秒...`);
+                await sleep(CONFIG.sleepTime);
                 continue;
             }
             
@@ -517,8 +539,8 @@
                 console.log(`[${currentTime}] 开空仓失败，继续执行休眠流程`);
             }
             
-            console.log(`[${currentTime}] 开始休眠${CONFIG.sleepAfterShort/1000}秒...`);
-            await sleep(CONFIG.sleepAfterShort);
+            console.log(`[${currentTime}] 开始休眠${CONFIG.sleepTime/1000}秒...`);
+            await sleep(CONFIG.sleepTime);
             
             // const afterSleep = new Date();
             // console.log(`[${formatTime(afterSleep)}] 休眠结束，准备开多仓`);

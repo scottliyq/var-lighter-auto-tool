@@ -183,5 +183,40 @@ function fillTargetSLInput(value) {
     return true;
 }
 
+function fillAmountInput(value) {
+    const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[5]/div[1]/div/span/div/div/input';
+    let input;
+    try {
+        input = document.evaluate(
+            XPATH,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+        ).singleNodeValue;
+    } catch (error) {
+        console.warn('解析数量输入框 XPath 失败:', error);
+        return false;
+    }
+
+    if (!input) {
+        console.warn('未找到数量输入框');
+        return false;
+    }
+
+    if (input.disabled || input.readOnly) {
+        console.warn('数量输入框不可编辑');
+        return false;
+    }
+
+    input.value = '';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    input.value = value ?? '';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    input.dispatchEvent(new Event('change', {bubbles: true}));
+    console.log('已填写数量输入框:', value);
+    return true;
+}
+
 
 
