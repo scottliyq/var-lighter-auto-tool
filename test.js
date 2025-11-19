@@ -219,4 +219,4 @@ function fillAmountInput(value) {
 }
 
 
-
+fillAmountInput(0.5)

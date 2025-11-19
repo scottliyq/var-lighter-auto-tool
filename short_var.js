@@ -110,44 +110,6 @@
         return false;
     }
 
-    function fillShortInputs() {
-        if (!Array.isArray(CONFIG.shortInputXPaths) || CONFIG.shortInputXPaths.length === 0) {
-            return true;
-        }
-
-        const filledAll = CONFIG.shortInputXPaths.every(xpath => {
-            try {
-                const result = document.evaluate(
-                    xpath,
-                    document,
-                    null,
-                    XPathResult.FIRST_ORDERED_NODE_TYPE,
-                    null
-                );
-                const input = result.singleNodeValue;
-                if (!input || input.disabled || input.readOnly) {
-                    console.warn('无法填充输入框:', xpath);
-                    return false;
-                }
-                input.value = '';
-                input.dispatchEvent(new Event('input', {bubbles: true}));
-                input.value = CONFIG.shortInputValue;
-                input.dispatchEvent(new Event('input', {bubbles: true}));
-                input.dispatchEvent(new Event('change', {bubbles: true}));
-                return true;
-            } catch (error) {
-                console.warn('填充输入框失败:', xpath, error);
-                return false;
-            }
-        });
-
-        if (!filledAll) {
-            console.warn('部分输入框未成功填充');
-        } else {
-            console.log('已填充开空仓输入框');
-        }
-        return filledAll;
-    }
     
     // 查找并点击开空仓按钮
     function clickShortButton() {
@@ -349,12 +311,31 @@
 
         input.value = '';
         input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.value = value ?? '';
+        input.value = String(value);
         input.dispatchEvent(new Event('input', {bubbles: true}));
         input.dispatchEvent(new Event('change', {bubbles: true}));
-        console.log('已填写数量输入框:', value);
+        console.log('已填写数量输入框:', value, '(类型:', typeof value, ')');
         return true;
     }
+
+    function getRandomizedAmount() {
+        const baseAmount = parseFloat(CONFIG.tradeAmount);
+        if (isNaN(baseAmount)) {
+            console.warn('tradeAmount 配置无效:', CONFIG.tradeAmount);
+            return CONFIG.tradeAmount;
+        }
+
+        const randomFactor = 0.9 + Math.random() * 0.2;
+        const randomAmount = baseAmount * randomFactor;
+
+        const decimalPlaces = (CONFIG.tradeAmount.toString().split('.')[1] || '').length;
+        // 增加2位小数来保留随机性，避免四舍五入回到原值
+        const finalAmount = randomAmount.toFixed(Math.max(decimalPlaces + 2, 3));
+
+        console.log(`随机数量: ${finalAmount} (基数: ${CONFIG.tradeAmount}, 系数: ${randomFactor.toFixed(3)})`);
+        return finalAmount;
+    }
+
     function hasEthInVirtualList() {
         const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
         let snapshot;
@@ -420,6 +401,18 @@
                 continue;
             }
 
+            const randomAmount = getRandomizedAmount();
+            console.log('准备填充数量:', randomAmount, '类型:', typeof randomAmount);
+            const amountFilled = fillAmountInput(randomAmount);
+            if (!amountFilled) {
+                retryCount++;
+                console.log('数量输入框填充失败，等待后重试开空仓...');
+                if (retryCount < CONFIG.shortMaxRetries) {
+                    await sleep(CONFIG.waitBeforeRetry);
+                }
+                continue;
+            }
+
             const slFilled = fillTargetSLInput?.();
             const tpFilled = slFilled && fillTargetTPInput?.();
             if (!slFilled || !tpFilled) {
@@ -472,43 +465,6 @@
         }
         
         console.log(`开空仓操作失败，已达到最大重试次数${CONFIG.shortMaxRetries}次`);
-        return false;
-    }
-    
-    // 执行开多仓操作（带重试）
-    async function openLongPosition() {
-        let retryCount = 0;
-        
-        while (retryCount < CONFIG.longMaxRetries) {
-            console.log(`开始执行开多仓操作... ${retryCount > 0 ? `(第${retryCount + 1}次重试)` : ''}`);
-            
-            if (!clickLongButton()) {
-                console.log('未找到开多仓按钮');
-                retryCount++;
-                if (retryCount < CONFIG.longMaxRetries) {
-                    console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开多仓...`);
-                    await sleep(CONFIG.waitBeforeRetry);
-                }
-                continue;
-            }
-
-            await sleep(CONFIG.uiUpdateDelay);
-            
-            if (!clickSubmitButton()) {
-                console.log('开多仓提交失败');
-                retryCount++;
-                if (retryCount < CONFIG.longMaxRetries) {
-                    console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开多仓...`);
-                    await sleep(CONFIG.waitBeforeRetry);
-                }
-                continue;
-            }
-            
-            console.log('开多仓操作完成');
-            return true;
-        }
-        
-        console.log(`开多仓操作失败，已达到最大重试次数${CONFIG.longMaxRetries}次`);
         return false;
     }
     
