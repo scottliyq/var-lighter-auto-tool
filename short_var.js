@@ -21,7 +21,13 @@
         longButtonText: '买',    // 开多仓按钮文字
         
         // 选择器配置
-        submitButtonSelector: 'button[data-testid="submit-button"]'
+        submitButtonSelector: 'button[data-testid="submit-button"]',
+        shortCheckboxXPath: '/html/body/div/div[1]/div[2]/div/div/div[6]/div[2]/button/button',
+        shortInputXPaths: [
+            '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input',
+            '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input'
+        ],
+        shortInputValue: '6'
     };
     // ========== 参数配置结束 ==========
     
@@ -32,21 +38,139 @@
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    function ensureShortCheckboxChecked() {
+        if (!CONFIG.shortCheckboxXPath) {
+            console.warn('未配置复选框 XPath');
+            return false;
+        }
+
+        let checkbox;
+        try {
+            checkbox = document.evaluate(
+                CONFIG.shortCheckboxXPath,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析shortCheckboxXPath失败:', error);
+            return false;
+        }
+
+        if (!checkbox) {
+            console.warn('未找到开空仓所需的复选框');
+            return false;
+        }
+
+        const isChecked = el => {
+            if (!el) {
+                return false;
+            }
+            if (el.matches?.('input[type="checkbox"]')) {
+                return !!el.checked;
+            }
+            const ariaChecked = el.getAttribute?.('aria-checked');
+            if (ariaChecked !== null) {
+                return ariaChecked === 'true';
+            }
+            if (el.tagName === 'BUTTON') {
+                const ariaPressed = el.getAttribute('aria-pressed');
+                if (ariaPressed !== null) {
+                    return ariaPressed === 'true';
+                }
+            }
+            const innerCheckbox = el.querySelector?.('input[type="checkbox"]');
+            if (innerCheckbox) {
+                return !!innerCheckbox.checked;
+            }
+            return el.classList?.contains('checked') || el.classList?.contains('is-checked');
+        };
+
+        if (isChecked(checkbox)) {
+            return true;
+        }
+
+        checkbox.click();
+        if (isChecked(checkbox)) {
+            console.log('已勾选开空仓复选框');
+            return true;
+        }
+
+        console.warn('尝试勾选开空仓复选框失败');
+        return false;
+    }
+
+    function fillShortInputs() {
+        if (!Array.isArray(CONFIG.shortInputXPaths) || CONFIG.shortInputXPaths.length === 0) {
+            return true;
+        }
+
+        const filledAll = CONFIG.shortInputXPaths.every(xpath => {
+            try {
+                const result = document.evaluate(
+                    xpath,
+                    document,
+                    null,
+                    XPathResult.FIRST_ORDERED_NODE_TYPE,
+                    null
+                );
+                const input = result.singleNodeValue;
+                if (!input || input.disabled || input.readOnly) {
+                    console.warn('无法填充输入框:', xpath);
+                    return false;
+                }
+                input.value = '';
+                input.dispatchEvent(new Event('input', {bubbles: true}));
+                input.value = CONFIG.shortInputValue;
+                input.dispatchEvent(new Event('input', {bubbles: true}));
+                input.dispatchEvent(new Event('change', {bubbles: true}));
+                return true;
+            } catch (error) {
+                console.warn('填充输入框失败:', xpath, error);
+                return false;
+            }
+        });
+
+        if (!filledAll) {
+            console.warn('部分输入框未成功填充');
+        } else {
+            console.log('已填充开空仓输入框');
+        }
+        return filledAll;
+    }
     
     // 查找并点击开空仓按钮
     function clickShortButton() {
-        const shortButtons = Array.from(document.querySelectorAll('button'));
-        const shortButton = shortButtons.find(btn => {
-            const span = btn.querySelector('span');
-            return span && span.textContent.includes(CONFIG.shortButtonText) && btn.querySelector('svg');
-        });
-        
-        if (shortButton) {
-            shortButton.click();
-            console.log('已点击开空仓按钮');
-            return true;
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div/button';
+        let button;
+        try {
+            button = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析开空仓按钮 XPath 失败:', error);
+            return false;
         }
-        return false;
+
+        if (!button) {
+            console.warn('未找到开空仓按钮');
+            return false;
+        }
+
+        if (button.disabled) {
+            console.warn('开空仓按钮当前不可用');
+            return false;
+        }
+
+        button.click();
+        console.log('已点击开空仓按钮');
+        return true;
     }
     
     // 查找并点击开多仓按钮
@@ -83,6 +207,77 @@
         return false;
     }
     
+    function fillTargetTPInput(value) {
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input';
+        let input;
+        try {
+            input = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析输入框 XPath 失败:', error);
+            return false;
+        }
+
+        if (!input) {
+            console.warn('未找到输入框');
+            return false;
+        }
+
+        if (input.disabled || input.readOnly) {
+            console.warn('输入框不可编辑');
+            return false;
+        }
+
+        input.value = '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.value = value ?? '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        console.log('已填写输入框:', value);
+        return true;
+    }
+
+
+
+    function fillTargetSLInput(value) {
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input';
+        let input;
+        try {
+            input = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析输入框 XPath 失败:', error);
+            return false;
+        }
+
+        if (!input) {
+            console.warn('未找到输入框');
+            return false;
+        }
+
+        if (input.disabled || input.readOnly) {
+            console.warn('输入框不可编辑');
+            return false;
+        }
+
+        input.value = '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.value = value ?? '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        console.log('已填写止损输入框:', value);
+        return true;
+    }
     // 获取当前交易对名称
     function getTradingPair() {
         const submitButtons = Array.from(document.querySelectorAll(CONFIG.submitButtonSelector));
@@ -104,6 +299,24 @@
         
         while (retryCount < CONFIG.shortMaxRetries) {
             console.log(`开始执行开空仓操作... ${retryCount > 0 ? `(第${retryCount + 1}次重试)` : ''}`);
+
+            if (!ensureShortCheckboxChecked()) {
+                retryCount++;
+                if (retryCount < CONFIG.shortMaxRetries) {
+                    console.log('复选框未勾选，等待后重试开空仓...');
+                    await sleep(CONFIG.waitBeforeRetry);
+                }
+                continue;
+            }
+
+            // if (!fillShortInputs()) {
+            //     retryCount++;
+            //     if (retryCount < CONFIG.shortMaxRetries) {
+            //         console.log('输入框填充失败，等待后重试开空仓...');
+            //         await sleep(CONFIG.waitBeforeRetry);
+            //     }
+            //     continue;
+            // }
             
             if (!clickShortButton()) {
                 console.log('未找到开空仓按钮');
@@ -117,15 +330,15 @@
 
             await sleep(CONFIG.uiUpdateDelay);
             
-            if (!clickSubmitButton()) {
-                console.log('开空仓提交失败');
-                retryCount++;
-                if (retryCount < CONFIG.shortMaxRetries) {
-                    console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开空仓...`);
-                    await sleep(CONFIG.waitBeforeRetry);
-                }
-                continue;
-            }
+            // if (!clickSubmitButton()) {
+            //     console.log('开空仓提交失败');
+            //     retryCount++;
+            //     if (retryCount < CONFIG.shortMaxRetries) {
+            //         console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开空仓...`);
+            //         await sleep(CONFIG.waitBeforeRetry);
+            //     }
+            //     continue;
+            // }
             
             console.log('开空仓操作完成');
             return true;
@@ -174,21 +387,27 @@
     
     async function mainLoop() {
         console.log('自动化交易脚本开始运行...');
+        let isFirstIteration = true;
         
         while (CONFIG.isRunning) {
             CONFIG.iteration++;
             
-            const now = new Date();
-            const nextMinute = new Date(now);
-            nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-            nextMinute.setSeconds(0);
-            nextMinute.setMilliseconds(0);
-            
-            const waitTime = nextMinute.getTime() - now.getTime();
-            
-            if (waitTime > 0) {
-                console.log(`[${formatTime(now)}] 等待整点开空仓，剩余 ${Math.round(waitTime/1000)} 秒`);
-                await sleep(waitTime);
+            if (!isFirstIteration) {
+                const now = new Date();
+                const nextMinute = new Date(now);
+                nextMinute.setMinutes(nextMinute.getMinutes() + 1);
+                nextMinute.setSeconds(0);
+                nextMinute.setMilliseconds(0);
+                
+                const waitTime = nextMinute.getTime() - now.getTime();
+                
+                if (waitTime > 0) {
+                    console.log(`[${formatTime(now)}] 等待整点开空仓，剩余 ${Math.round(waitTime/1000)} 秒`);
+                    await sleep(waitTime);
+                }
+            } else {
+                console.log('首次执行，跳过整点等待');
+                isFirstIteration = false;
             }
             
             const exactTime = new Date();
@@ -211,13 +430,13 @@
             const afterSleep = new Date();
             console.log(`[${formatTime(afterSleep)}] 休眠结束，准备开多仓`);
             
-            const longSuccess = await openLongPosition();
+            // const longSuccess = await openLongPosition();
             
-            if (longSuccess) {
-                console.log(`[${formatTime(afterSleep)}] 开多仓成功`);
-            } else {
-                console.log(`[${formatTime(afterSleep)}] 开多仓失败，继续下一轮循环`);
-            }
+            // if (longSuccess) {
+            //     console.log(`[${formatTime(afterSleep)}] 开多仓成功`);
+            // } else {
+            //     console.log(`[${formatTime(afterSleep)}] 开多仓失败，继续下一轮循环`);
+            // }
         }
     }
     
