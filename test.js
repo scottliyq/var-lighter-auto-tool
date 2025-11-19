@@ -42,7 +42,7 @@
     return success;
 })();
 
-function hasEthInVirtualList() {
+function hasEthInVirtualList(symbol = 'ETH-PERP') {
     const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
     let snapshot;
     try {
@@ -66,7 +66,7 @@ function hasEthInVirtualList() {
     for (let i = 0; i < snapshot.snapshotLength; i++) {
         const span = snapshot.snapshotItem(i);
         const text = span?.textContent?.trim().toUpperCase();
-        if (text && text.includes('ETH-PERP')) {
+        if (text && text.includes(symbol)) {
             console.log('虚拟列表中包含 ETH-PERP 仓位');
             return true;
         }
@@ -109,7 +109,7 @@ function clickTargetButton() {
     return true;
 }
 
-clickTargetButton();
+
 
 function fillTargetTPInput(value) {
     const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input';
@@ -146,7 +146,7 @@ function fillTargetTPInput(value) {
     return true;
 }
 
-fillTargetTPInput('6');
+
 
 function fillTargetSLInput(value) {
     const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input';
@@ -183,5 +183,5 @@ function fillTargetSLInput(value) {
     return true;
 }
 
-fillTargetSLInput('6');
+
 

@@ -8,9 +8,10 @@
         iteration: 0,
         
         // 时间配置
-        sleepAfterShort: 6500000, // 开空仓后休眠时间(毫秒) - 100秒 = 600000毫秒
+        sleepAfterShort: 10000, // 开空仓后休眠时间(毫秒) - 20秒 = 20000毫秒
         waitBeforeRetry: 1000,   // 重试前等待时间(毫秒)
         uiUpdateDelay: 500,      // UI更新等待时间(毫秒)
+        shortInputSettleDelay: 500, // 填写止盈/止损后等待提交的时间(毫秒)
         
         // 重试配置
         shortMaxRetries: 5,      // 开空仓最大重试次数
@@ -207,6 +208,40 @@
         return false;
     }
     
+    function hasEthInVirtualList(symbol = 'ETH-PERP') {
+        const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
+        let snapshot;
+        try {
+            snapshot = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null
+            );
+        } catch (error) {
+            console.warn('解析仓位列表 XPath 失败:', error);
+            return false;
+        }
+
+        if (!snapshot || snapshot.snapshotLength === 0) {
+            console.warn('未找到仓位列表行');
+            return false;
+        }
+
+        for (let i = 0; i < snapshot.snapshotLength; i++) {
+            const span = snapshot.snapshotItem(i);
+            const text = span?.textContent?.trim().toUpperCase();
+            if (text && text.includes(symbol)) {
+                console.log('虚拟列表中包含 ETH-PERP 仓位');
+                return true;
+            }
+        }
+
+        console.log('虚拟列表未检测到 ETH-PERP 仓位');
+        return false;
+    }
+
     function fillTargetTPInput(value) {
         const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input';
         let input;
@@ -278,6 +313,41 @@
         console.log('已填写止损输入框:', value);
         return true;
     }
+
+    function hasEthInVirtualList() {
+        const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
+        let snapshot;
+        try {
+            snapshot = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null
+            );
+        } catch (error) {
+            console.warn('解析仓位列表 XPath 失败:', error);
+            return false;
+        }
+
+        if (!snapshot || snapshot.snapshotLength === 0) {
+            console.warn('未找到仓位列表行');
+            return false;
+        }
+
+        for (let i = 0; i < snapshot.snapshotLength; i++) {
+            const span = snapshot.snapshotItem(i);
+            const text = span?.textContent?.trim().toUpperCase();
+            if (text && text.includes('ETH-PERP')) {
+                console.log('虚拟列表中包含 ETH-PERP 仓位');
+                return true;
+            }
+        }
+
+        console.log('虚拟列表未检测到 ETH-PERP 仓位');
+        return false;
+    }
+
     // 获取当前交易对名称
     function getTradingPair() {
         const submitButtons = Array.from(document.querySelectorAll(CONFIG.submitButtonSelector));
@@ -307,6 +377,22 @@
                     await sleep(CONFIG.waitBeforeRetry);
                 }
                 continue;
+            }
+
+            const slFilled = fillTargetSLInput?.('6');
+            const tpFilled = slFilled && fillTargetTPInput?.('6');
+            if (!slFilled || !tpFilled) {
+                retryCount++;
+                console.log('止盈/止损输入框填充失败，等待后重试开空仓...');
+                if (retryCount < CONFIG.shortMaxRetries) {
+                    await sleep(CONFIG.waitBeforeRetry);
+                }
+                continue;
+            }
+
+            if (CONFIG.shortInputSettleDelay > 0) {
+                console.log(`填写输入框后等待 ${CONFIG.shortInputSettleDelay} 毫秒`);
+                await sleep(CONFIG.shortInputSettleDelay);
             }
 
             // if (!fillShortInputs()) {
@@ -416,6 +502,13 @@
             
             console.log(`[${currentTime}] 第${CONFIG.iteration}次执行 - 开空仓 ${tradingPair}`);
             
+            if (hasEthInVirtualList()) {
+                console.log(`[${currentTime}] 检测到现有 ETH 仓位，跳过开仓`);
+                console.log(`[${currentTime}] 开始休眠${CONFIG.sleepAfterShort/1000}秒...`);
+                await sleep(CONFIG.sleepAfterShort);
+                continue;
+            }
+            
             const shortSuccess = await openShortPosition();
             
             if (shortSuccess) {
@@ -427,8 +520,8 @@
             console.log(`[${currentTime}] 开始休眠${CONFIG.sleepAfterShort/1000}秒...`);
             await sleep(CONFIG.sleepAfterShort);
             
-            const afterSleep = new Date();
-            console.log(`[${formatTime(afterSleep)}] 休眠结束，准备开多仓`);
+            // const afterSleep = new Date();
+            // console.log(`[${formatTime(afterSleep)}] 休眠结束，准备开多仓`);
             
             // const longSuccess = await openLongPosition();
             
@@ -462,7 +555,7 @@
     };
     
     console.log('自动化交易脚本已启动');
-    console.log('执行逻辑：每分钟整点开空仓 → 休眠100秒 → 开多仓');
+    // console.log('执行逻辑：每分钟整点开空仓 → 休眠100秒 → 开多仓');
     console.log('当前交易对:', getTradingPair());
     console.log('如需停止，请在控制台输入: stopTrading()');
     console.log('查询状态输入: getTradingStatus()');
