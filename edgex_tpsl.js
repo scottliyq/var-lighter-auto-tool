@@ -1,15 +1,65 @@
 (function() {
     'use strict';
     
+    // 从URL中提取交易对符号
+    function getSymbolFromUrl() {
+        try {
+            const url = window.location.href;
+            const match = url.match(/\/trade\/([^/?&#]+)/);
+            if (match && match[1]) {
+                const symbol = match[1].toUpperCase();
+                console.log('从URL提取交易对:', symbol);
+                return symbol;
+            }
+            console.warn('URL中未找到交易对，使用默认值');
+            return 'NULL';
+        } catch (error) {
+            console.error('提取交易对失败:', error);
+            return 'NULL';
+        }
+    }
+    
+    // 根据symbol自动设置direction
+    function getDirectionBySymbol(symbol) {
+        const upperSymbol = symbol.toUpperCase();
+        if (upperSymbol === 'ETHUSD') {
+            console.log('检测到 ETHUSD，设置方向为 LONG');
+            return 'SHORT';
+        } else if (upperSymbol === 'BTCUSD') {
+            console.log('检测到 BTCUSD，设置方向为 SHORT');
+            return 'LONG';
+        }
+        // 默认值
+        console.log(`未知交易对 ${symbol}，使用默认方向 SHORT`);
+        return 'SHORT';
+    }
+    
+    // 根据symbol自动设置tradeAmount
+    function getTradeAmountBySymbol(symbol) {
+        const upperSymbol = symbol.toUpperCase();
+        if (upperSymbol === 'ETHUSD') {
+            console.log('检测到 ETHUSD，设置交易数量为 0.02');
+            return '0.02';
+        } else if (upperSymbol === 'BTCUSD') {
+            console.log('检测到 BTCUSD，设置交易数量为 0.006');
+            return '0.006';
+        }
+        // 默认值
+        console.log(`未知交易对 ${symbol}，使用默认交易数量 0.02`);
+        return '0.02';
+    }
+    
     // ========== 参数配置区域 ==========
     const CONFIG = {
         // 执行控制
         isRunning: true,
         iteration: 0,
-        
+        direction: null, // 将在下面根据symbol自动设置
+        tprate : 0.0015,
+        slrate : 0.0015,
         // 交易配置
-        symbol: 'ETH-PERP',      // 监控的交易对符号
-        tradeAmount: '0.5',      // 交易数量
+        symbol: getSymbolFromUrl(),  // 从URL自动获取交易对符号
+        tradeAmount: null,        // 将在下面根据symbol自动设置
         targetTPValue: '5',      // 止盈(TP)输入值
         targetSLValue: '5',      // 止损(SL)输入值
         
@@ -29,14 +79,24 @@
         longButtonText: '买',    // 开多仓按钮文字
         
         // 选择器配置
-        submitButtonSelector: 'button[data-testid="submit-button"]',
-        shortCheckboxXPath: '/html/body/div/div[1]/div[2]/div/div/div[6]/div[2]/button/button',
-        shortInputXPaths: [
-            '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input',
-            '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input'
-        ],
-        shortInputValue: '6'
+        // submitButtonSelector: 'button[data-testid="submit-button"]',
+        shortCheckboxXPath: '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[1]/div[1]/button',
+        // shortInputXPaths: [
+        //     '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[1]/div/div/div[1]/input',
+        //     '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[2]/div/div[1]/input'
+        // ],
+        lastPriceSelector: '/html/body/div[1]/div[1]/div[2]/div/div[1]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/span',
+        shortInputValue: '6',
+        longButtonSelector: '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[7]/button[1]',
+        shortButtonSelector: '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[7]/button[2]'
+
     };
+    
+    // 根据symbol设置direction和tradeAmount
+    CONFIG.direction = getDirectionBySymbol(CONFIG.symbol);
+    CONFIG.tradeAmount = getTradeAmountBySymbol(CONFIG.symbol);
+    console.log(`交易对: ${CONFIG.symbol}, 方向: ${CONFIG.direction}, 交易数量: ${CONFIG.tradeAmount}`);
+    
     // ========== 参数配置结束 ==========
     
     function formatTime(date) {
@@ -111,9 +171,12 @@
     }
 
     
-    // 查找并点击开空仓按钮
-    function clickShortButton() {
-        const XPATH = '/html/body/div/div[1]/div[2]/div/div/button';
+    // 根据direction配置点击对应的下单按钮
+    function clickOrderButton() {
+        const isLong = CONFIG.direction === 'LONG';
+        const XPATH = isLong ? CONFIG.longButtonSelector : CONFIG.shortButtonSelector;
+        const buttonName = isLong ? '做多' : '做空';
+        
         let button;
         try {
             button = document.evaluate(
@@ -124,63 +187,61 @@
                 null
             ).singleNodeValue;
         } catch (error) {
-            console.warn('解析开空仓按钮 XPath 失败:', error);
+            console.warn(`解析${buttonName}按钮 XPath 失败:`, error);
             return false;
         }
 
         if (!button) {
-            console.warn('未找到开空仓按钮');
+            console.warn(`未找到${buttonName}按钮`);
             return false;
         }
 
         if (button.disabled) {
-            console.warn('开空仓按钮当前不可用');
+            console.warn(`${buttonName}按钮当前不可用`);
             return false;
         }
 
         button.click();
-        console.log('已点击开空仓按钮');
+        console.log(`已点击${buttonName}按钮`);
         return true;
     }
     
     
     
-    function hasEthInVirtualList(symbol = 'ETH-PERP') {
-        const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
-        let snapshot;
+     function hasPosInVirtualList4Edgex(symbol = 'ETHUSD') {
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div[1]/div[2]/div/div[2]/div/table';
+        let table;
         try {
-            snapshot = document.evaluate(
+            table = document.evaluate(
                 XPATH,
                 document,
                 null,
-                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
                 null
-            );
+            ).singleNodeValue;
         } catch (error) {
             console.warn('解析仓位列表 XPath 失败:', error);
             return false;
         }
 
-        if (!snapshot || snapshot.snapshotLength === 0) {
-            console.warn('未找到仓位列表行');
+        const tableText = table.textContent?.trim().toUpperCase();
+        if (!tableText) {
+            console.warn('表格内容为空');
             return false;
         }
 
-        for (let i = 0; i < snapshot.snapshotLength; i++) {
-            const span = snapshot.snapshotItem(i);
-            const text = span?.textContent?.trim().toUpperCase();
-            if (text && text.includes(symbol)) {
-                console.log('虚拟列表中包含 ETH-PERP 仓位');
-                return true;
-            }
+        const symbolUpper = symbol.toUpperCase();
+        if (tableText.includes(symbolUpper)) {
+            console.log(`表格中包含 ${symbol} 仓位`);
+            return true;
         }
 
-        console.log('虚拟列表未检测到 ETH-PERP 仓位');
+        console.log(`表格未检测到 ${symbol} 仓位`);
         return false;
     }
 
     function fillTargetTPInput(value = CONFIG.targetTPValue) {
-        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[4]/div[2]/div[1]/input';
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[1]/div/div/div[1]/input';
         let input;
         try {
             input = document.evaluate(
@@ -205,19 +266,33 @@
             return false;
         }
 
-        input.value = '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.value = value ?? '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.dispatchEvent(new Event('change', {bubbles: true}));
-        console.log('已填写止盈输入框:', value);
+        const strValue = String(value ?? '');
+        
+        // 先聚焦输入框
+        input.focus();
+        
+        // 使用原生的 setter 设置值（绕过框架拦截）
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(input, strValue);
+        
+        // 触发 input 事件通知框架
+        const inputEvent = new Event('input', {bubbles: true, cancelable: true});
+        input.dispatchEvent(inputEvent);
+        
+        // 短暂延迟后触发 change 事件
+        setTimeout(() => {
+            const changeEvent = new Event('change', {bubbles: true, cancelable: true});
+            input.dispatchEvent(changeEvent);
+        }, 100);
+        
+        console.log('已填写止盈输入框:', strValue);
         return true;
     }
 
 
 
     function fillTargetSLInput(value = CONFIG.targetSLValue) {
-        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[6]/div[5]/div[2]/div[1]/input';
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[2]/div/div[1]/input';
         let input;
         try {
             input = document.evaluate(
@@ -242,17 +317,31 @@
             return false;
         }
 
-        input.value = '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.value = value ?? '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.dispatchEvent(new Event('change', {bubbles: true}));
-        console.log('已填写止损输入框:', value);
+        const strValue = String(value ?? '');
+        
+        // 先聚焦输入框
+        input.focus();
+        
+        // 使用原生的 setter 设置值（绕过框架拦截）
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(input, strValue);
+        
+        // 触发 input 事件通知框架
+        const inputEvent = new Event('input', {bubbles: true, cancelable: true});
+        input.dispatchEvent(inputEvent);
+        
+        // 短暂延迟后触发 change 事件
+        setTimeout(() => {
+            const changeEvent = new Event('change', {bubbles: true, cancelable: true});
+            input.dispatchEvent(changeEvent);
+        }, 100);
+        
+        console.log('已填写止损输入框:', strValue);
         return true;
     }
 
     function fillAmountInput(value) {
-        const XPATH = '/html/body/div/div[1]/div[2]/div/div/div[5]/div[1]/div/span/div/div/input';
+        const XPATH = '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[4]/div[1]/div/div/div[1]/input';
         let input;
         try {
             input = document.evaluate(
@@ -272,17 +361,37 @@
             return false;
         }
 
+        console.log('找到输入框:', input);
+        console.log('当前值:', input.value);
+
         if (input.disabled || input.readOnly) {
             console.warn('数量输入框不可编辑');
             return false;
         }
 
-        input.value = '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.value = String(value);
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.dispatchEvent(new Event('change', {bubbles: true}));
-        console.log('已填写数量输入框:', value, '(类型:', typeof value, ')');
+        const strValue = String(value);
+        
+        // 先聚焦输入框
+        input.focus();
+        
+        // 使用原生的 setter 设置值（绕过框架拦截）
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(input, strValue);
+        
+        // 触发 input 事件通知框架
+        const inputEvent = new Event('input', {bubbles: true, cancelable: true});
+        input.dispatchEvent(inputEvent);
+        
+        // 短暂延迟后触发 change 事件
+        setTimeout(() => {
+            const changeEvent = new Event('change', {bubbles: true, cancelable: true});
+            input.dispatchEvent(changeEvent);
+            console.log('延迟触发 change 后的值:', input.value);
+        }, 100);
+        
+        console.log('设置后的值:', input.value);
+        console.log('已填写数量输入框:', strValue);
+        
         return true;
     }
 
@@ -298,45 +407,97 @@
 
         const decimalPlaces = (CONFIG.tradeAmount.toString().split('.')[1] || '').length;
         // 增加2位小数来保留随机性，避免四舍五入回到原值
-        const finalAmount = randomAmount.toFixed(Math.max(decimalPlaces + 2, 3));
+        const finalAmount = randomAmount.toFixed(Math.max(decimalPlaces + 2, 2));
 
         console.log(`随机数量: ${finalAmount} (基数: ${CONFIG.tradeAmount}, 系数: ${randomFactor.toFixed(3)})`);
         return finalAmount;
     }
 
-    function hasEthInVirtualList() {
-        const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
-        let snapshot;
+    function getLastPrice() {
+        const lastPriceSelector= '/html/body/div[1]/div[1]/div[2]/div/div[1]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/span'
+
+        if (!lastPriceSelector) {
+            console.warn('未配置最新价格选择器');
+            return null;
+        }
+
+        let priceElement;
         try {
-            snapshot = document.evaluate(
-                XPATH,
+            priceElement = document.evaluate(
+                lastPriceSelector,
                 document,
                 null,
-                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
                 null
-            );
+            ).singleNodeValue;
         } catch (error) {
-            console.warn('解析仓位列表 XPath 失败:', error);
-            return false;
+            console.warn('解析最新价格 XPath 失败:', error);
+            return null;
         }
 
-        if (!snapshot || snapshot.snapshotLength === 0) {
-            console.warn('未找到仓位列表行');
-            return false;
+        if (!priceElement) {
+            console.warn('未找到最新价格元素');
+            return null;
         }
 
-        for (let i = 0; i < snapshot.snapshotLength; i++) {
-            const span = snapshot.snapshotItem(i);
-            const text = span?.textContent?.trim().toUpperCase();
-            if (text && text.includes(CONFIG.symbol)) {
-                console.log(`虚拟列表中包含 ${CONFIG.symbol} 仓位`);
-                return true;
-            }
+        const priceText = priceElement.textContent?.trim();
+        if (!priceText) {
+            console.warn('价格元素内容为空');
+            return null;
         }
 
-        console.log(`虚拟列表未检测到 ${CONFIG.symbol} 仓位`);
-        return false;
+        // 移除逗号等格式化字符，提取纯数字
+        const cleanPrice = priceText.replace(/[,\s]/g, '');
+        const price = parseFloat(cleanPrice);
+
+        if (isNaN(price)) {
+            console.warn('无法解析价格:', priceText);
+            return null;
+        }
+
+        console.log('获取最新价格:', price);
+        return price;
     }
+
+    // 通用方法：根据类型(TP/SL)和方向计算目标价格
+    function calculateTargetPrice(currentPrice, type = 'TP') {
+        if (!currentPrice || isNaN(currentPrice)) {
+            console.warn('无效的当前价格:', currentPrice);
+            return null;
+        }
+
+        const isLong = CONFIG.direction === 'LONG';
+        const isTp = type === 'TP';
+        const rate = isTp ? CONFIG.tprate : CONFIG.slrate;
+        const typeName = isTp ? '止盈' : '止损';
+
+        let targetPrice;
+        if (isLong) {
+            // 做多：止盈价向上，止损价向下
+            targetPrice = isTp ? currentPrice * (1 + rate) : currentPrice * (1 - rate);
+        } else {
+            // 做空：止盈价向下，止损价向上
+            targetPrice = isTp ? currentPrice * (1 - rate) : currentPrice * (1 + rate);
+        }
+
+        // 保留与当前价格相同的小数位数
+        const decimalPlaces = currentPrice.toString().split('.')[1]?.length || 2;
+        const finalPrice = targetPrice.toFixed(decimalPlaces);
+
+        console.log(`计算${typeName}价: ${finalPrice} (方向: ${CONFIG.direction}, 当前价: ${currentPrice}, 比例: ${rate})`);
+        return finalPrice;
+    }
+
+    // 便捷方法：计算止盈价
+    function calculateTargetTpPrice(currentPrice) {
+        return calculateTargetPrice(currentPrice, 'TP');
+    }
+
+    // 便捷方法：计算止损价
+    function calculateTargetSlPrice(currentPrice) {
+        return calculateTargetPrice(currentPrice, 'SL');
+    }
+
 
     // 获取当前交易对名称
     function getTradingPair() {
@@ -369,9 +530,9 @@
                 continue;
             }
 
-            const randomAmount = getRandomizedAmount();
-            console.log('准备填充数量:', randomAmount, '类型:', typeof randomAmount);
-            const amountFilled = fillAmountInput(randomAmount);
+            // const randomAmount = getRandomizedAmount();
+            // console.log('准备填充数量:', randomAmount, '类型:', typeof randomAmount);
+            const amountFilled = fillAmountInput(CONFIG.tradeAmount);
             if (!amountFilled) {
                 retryCount++;
                 console.log('数量输入框填充失败，等待后重试开空仓...');
@@ -380,9 +541,30 @@
                 }
                 continue;
             }
-
-            const slFilled = fillTargetSLInput?.();
-            const tpFilled = slFilled && fillTargetTPInput?.();
+            const lastPrice = getLastPrice();
+            console.log('最新价格:', lastPrice);
+            if (!lastPrice) {
+                retryCount++;
+                console.log('获取最新价格失败，等待后重试开空仓...');
+                if (retryCount < CONFIG.shortMaxRetries) {
+                    await sleep(CONFIG.waitBeforeRetry);
+                }
+                continue;
+            }
+            
+            const targetTPPrice = calculateTargetTpPrice(lastPrice);
+            const targetSLPrice = calculateTargetSlPrice(lastPrice);
+            if (!targetTPPrice || !targetSLPrice) {
+                retryCount++;
+                console.log('计算止盈止损价格失败，等待后重试开空仓...');
+                if (retryCount < CONFIG.shortMaxRetries) {
+                    await sleep(CONFIG.waitBeforeRetry);
+                }
+                continue;
+            }
+            
+            const slFilled = fillTargetSLInput?.(targetSLPrice);
+            const tpFilled = slFilled && fillTargetTPInput?.(targetTPPrice);
             if (!slFilled || !tpFilled) {
                 retryCount++;
                 console.log('止盈/止损输入框填充失败，等待后重试开空仓...');
@@ -406,11 +588,11 @@
             //     continue;
             // }
             
-            if (!clickShortButton()) {
-                console.log('未找到开空仓按钮');
+            if (!clickOrderButton()) {
+                console.log('未找到下单按钮');
                 retryCount++;
                 if (retryCount < CONFIG.shortMaxRetries) {
-                    console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开空仓...`);
+                    console.log(`${CONFIG.waitBeforeRetry/1000}秒后重试开仓...`);
                     await sleep(CONFIG.waitBeforeRetry);
                 }
                 continue;
@@ -448,7 +630,7 @@
             
             console.log(`[${currentTime}] 第${CONFIG.iteration}次执行 - 开空仓 ${tradingPair}`);
             
-            if (hasEthInVirtualList()) {
+            if (hasPosInVirtualList4Edgex(CONFIG.symbol)) {
                 console.log(`[${currentTime}] 检测到现有 ${CONFIG.symbol} 仓位,跳过开仓`);
                 console.log(`[${currentTime}] 开始休眠${CONFIG.sleepTime/1000}秒...`);
                 await sleep(CONFIG.sleepTime);
@@ -458,24 +640,14 @@
             const shortSuccess = await openShortPosition();
             
             if (shortSuccess) {
-                console.log(`[${currentTime}] 开空仓成功`);
+                console.log(`[${currentTime}] 开仓成功`);
             } else {
-                console.log(`[${currentTime}] 开空仓失败，继续执行休眠流程`);
+                console.log(`[${currentTime}] 开仓失败，继续执行休眠流程`);
             }
             
             console.log(`[${currentTime}] 开始休眠${CONFIG.sleepTime/1000}秒...`);
             await sleep(CONFIG.sleepTime);
             
-            // const afterSleep = new Date();
-            // console.log(`[${formatTime(afterSleep)}] 休眠结束，准备开多仓`);
-            
-            // const longSuccess = await openLongPosition();
-            
-            // if (longSuccess) {
-            //     console.log(`[${formatTime(afterSleep)}] 开多仓成功`);
-            // } else {
-            //     console.log(`[${formatTime(afterSleep)}] 开多仓失败，继续下一轮循环`);
-            // }
         }
     }
     
