@@ -39,14 +39,14 @@
         const upperSymbol = symbol.toUpperCase();
         if (upperSymbol === 'ETHUSD') {
             console.log('检测到 ETHUSD，设置交易数量为 0.02');
-            return '0.02';
+            return '0.2';
         } else if (upperSymbol === 'BTCUSD') {
             console.log('检测到 BTCUSD，设置交易数量为 0.006');
-            return '0.006';
+            return '0.007';
         }
         // 默认值
         console.log(`未知交易对 ${symbol}，使用默认交易数量 0.02`);
-        return '0.02';
+        return '0';
     }
     
     // ========== 参数配置区域 ==========
@@ -60,8 +60,8 @@
         // 交易配置
         symbol: getSymbolFromUrl(),  // 从URL自动获取交易对符号
         tradeAmount: null,        // 将在下面根据symbol自动设置
-        targetTPValue: '5',      // 止盈(TP)输入值
-        targetSLValue: '5',      // 止损(SL)输入值
+        // targetTPValue: '5',      // 止盈(TP)输入值
+        // targetSLValue: '5',      // 止损(SL)输入值
         
         // 时间配置
         sleepTime: 20000,        // 每轮循环休眠时间(毫秒) - 6500秒 = 6500000毫秒
@@ -240,7 +240,7 @@
         return false;
     }
 
-    function fillTargetTPInput(value = CONFIG.targetTPValue) {
+    function fillTargetTPInput(value = 0) {
         const XPATH = '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[1]/div/div/div[1]/input';
         let input;
         try {
@@ -291,7 +291,7 @@
 
 
 
-    function fillTargetSLInput(value = CONFIG.targetSLValue) {
+    function fillTargetSLInput(value = 0) {
         const XPATH = '/html/body/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div[6]/div[1]/div[2]/div[2]/div/div[1]/input';
         let input;
         try {
