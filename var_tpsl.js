@@ -21,14 +21,20 @@
     function getTradeAmountBySymbol(symbol) {
         const upperSymbol = symbol.toUpperCase();
         if (upperSymbol === 'ETH') {
-            console.log('检测到 ETH，设置交易数量为 0.4');
-            return '0.4';
+            console.log('检测到 ETH，设置交易数量为 0.15');
+            return '0.15';
         } else if (upperSymbol === 'BTC') {
-            console.log('检测到 BTC，设置交易数量为 0.013');
-            return '0.013';
+            console.log('检测到 BTC，设置交易数量为 0.005');
+            return '0.005';
+        } else if (upperSymbol === 'SOL') {
+            console.log('检测到 SOL，设置交易数量为 3');
+            return '3';
+        } else if (upperSymbol === 'HYPE') {
+            console.log('检测到 HYPE，设置交易数量为 10');
+            return '10';
         } else if (upperSymbol === 'XAUT' || upperSymbol === 'PAXG') {
             console.log(`检测到 ${upperSymbol}，设置交易数量为 0.3`);
-            return '0.3';
+            return '0.12';
         }
         // 默认值
         console.log(`未知交易对 ${symbol}，使用默认交易数量 0.02`);
@@ -43,8 +49,8 @@
         // 交易配置
         symbol: getSymbolFromUrl(),      // 监控的交易对符号
         tradeAmount: null,       // 将在下面根据symbol自动设置
-        targetTPValue: '3',      // 止盈(TP)输入值
-        targetSLValue: '3',      // 止损(SL)输入值
+        targetTPValue: '2',      // 止盈(TP)输入值
+        targetSLValue: '2',      // 止损(SL)输入值
         
         // 时间配置
         sleepTime: 20000,        // 每轮循环休眠时间(毫秒) - 6500秒 = 6500000毫秒
