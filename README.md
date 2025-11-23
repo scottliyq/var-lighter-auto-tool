@@ -1,0 +1,1 @@
+修改了原repository的variational的代码，加上自动TPSL的自动平仓，这样就不会有爆仓的风险。新加了Edgex的支持，f12复制到Chrome的console就可以直接运行。Enjoy
