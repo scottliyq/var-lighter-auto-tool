@@ -24,8 +24,11 @@
             console.log('检测到 ETH，设置交易数量为 0.4');
             return '0.4';
         } else if (upperSymbol === 'BTC') {
-            console.log('检测到 BTCUSD，设置交易数量为 0.013');
+            console.log('检测到 BTC，设置交易数量为 0.013');
             return '0.013';
+        } else if (upperSymbol === 'XAUT' || upperSymbol === 'PAXG') {
+            console.log(`检测到 ${upperSymbol}，设置交易数量为 0.3`);
+            return '0.3';
         }
         // 默认值
         console.log(`未知交易对 ${symbol}，使用默认交易数量 0.02`);
@@ -180,7 +183,7 @@
     
     
     
-    function hasEthInVirtualList(symbol = 'ETH-PERP') {
+    function hasEthInVirtualList(symbol = 'ETH') {
         const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
         let snapshot;
         try {
@@ -205,12 +208,12 @@
             const span = snapshot.snapshotItem(i);
             const text = span?.textContent?.trim().toUpperCase();
             if (text && text.includes(symbol)) {
-                console.log('虚拟列表中包含 ETH-PERP 仓位');
+                console.log('虚拟列表中包含 ETH 仓位');
                 return true;
             }
         }
 
-        console.log('虚拟列表未检测到 ETH-PERP 仓位');
+        console.log('虚拟列表未检测到 ETH 仓位');
         return false;
     }
 
@@ -328,7 +331,7 @@
             return CONFIG.tradeAmount;
         }
 
-        const randomFactor = 0.9 + Math.random() * 0.2;
+        const randomFactor = 0.9 + Math.random() * 0.15;
         const randomAmount = baseAmount * randomFactor;
 
         const decimalPlaces = (CONFIG.tradeAmount.toString().split('.')[1] || '').length;
