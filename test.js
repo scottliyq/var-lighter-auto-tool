@@ -307,9 +307,10 @@ function getLastPrice() {
     function getSymbolFromUrl() {
         try {
             const url = window.location.href;
-            const match = url.match(/\/trade\/([^/?&#]+)/);
-            if (match && match[1]) {
-                const symbol = match[1].toUpperCase();
+            // 支持 /trade/SYMBOL 和 /perpetual/SYMBOL 两种格式
+            const match = url.match(/\/(trade|perpetual)\/([^/?&#]+)/);
+            if (match && match[2]) {
+                const symbol = match[2].toUpperCase();
                 console.log('从URL提取交易对:', symbol);
                 return symbol;
             }
