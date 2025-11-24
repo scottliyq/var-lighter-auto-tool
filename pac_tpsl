@@ -22,10 +22,10 @@
         const upperSymbol = symbol.toUpperCase();
         if (upperSymbol === 'ETH') {
             console.log('检测到 ETH，设置交易数量为 0.15');
-            return '0.05';
+            return '0.15';
         } else if (upperSymbol === 'BTC') {
             console.log('检测到 BTC，设置交易数量为 0.005');
-            return '0.0005';
+            return '0.005';
         } else if (upperSymbol === 'SOL') {
             console.log('检测到 SOL，设置交易数量为 3');
             return '3';
