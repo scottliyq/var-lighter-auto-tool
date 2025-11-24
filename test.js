@@ -517,3 +517,105 @@ function getLastPrice() {
     }
 
     clickTargetButton2();
+
+
+    function ensureShortCheckboxChecked() {
+        const checkboxXPath = '/html/body/div/main/div/div/div/div[2]/div/div[3]/div/div[1]/div/div[1]/div[2]/div/div/div[6]/div[1]/div/button';
+        if (!checkboxXPath) {
+            console.warn('未配置复选框 XPath');
+            return false;
+        }
+
+        let checkbox;
+        try {
+            checkbox = document.evaluate(
+                checkboxXPath,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析shortCheckboxXPath失败:', error);
+            return false;
+        }
+
+        if (!checkbox) {
+            console.warn('未找到开空仓所需的复选框');
+            return false;
+        }
+
+        const isChecked = el => {
+            if (!el) {
+                return false;
+            }
+            if (el.matches?.('input[type="checkbox"]')) {
+                return !!el.checked;
+            }
+            const ariaChecked = el.getAttribute?.('aria-checked');
+            if (ariaChecked !== null) {
+                return ariaChecked === 'true';
+            }
+            if (el.tagName === 'BUTTON') {
+                const ariaPressed = el.getAttribute('aria-pressed');
+                if (ariaPressed !== null) {
+                    return ariaPressed === 'true';
+                }
+            }
+            const innerCheckbox = el.querySelector?.('input[type="checkbox"]');
+            if (innerCheckbox) {
+                return !!innerCheckbox.checked;
+            }
+            return el.classList?.contains('checked') || el.classList?.contains('is-checked');
+        };
+
+        if (isChecked(checkbox)) {
+            return true;
+        }
+
+        checkbox.click();
+        if (isChecked(checkbox)) {
+            console.log('已勾选开空仓复选框');
+            return true;
+        }
+
+        console.warn('尝试勾选开空仓复选框失败');
+        return false;
+    }
+
+    ensureShortCheckboxChecked();
+
+
+    function clickShortButton() {
+        const XPATH = '/html/body/div/main/div/div/div/div[2]/div/div[3]/div/div[1]/div/div[1]/div[2]/div/div/div[7]/button[1]';
+        let button;
+        try {
+            button = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析开空仓按钮 XPath 失败:', error);
+            return false;
+        }
+
+        if (!button) {
+            console.warn('未找到开空仓按钮');
+            return false;
+        }
+
+        if (button.disabled) {
+            console.warn('开空仓按钮当前不可用');
+            return false;
+        }
+
+        button.click();
+        console.log('已点击开空仓按钮');
+        return true;
+    }
+
+
+    clickShortButton();
