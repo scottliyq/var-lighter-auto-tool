@@ -49,8 +49,8 @@
         // 交易配置
         symbol: getSymbolFromUrl(),      // 监控的交易对符号
         tradeAmount: null,       // 将在下面根据symbol自动设置
-        targetTPValue: '2',      // 止盈(TP)输入值
-        targetSLValue: '2',      // 止损(SL)输入值
+        targetTPValue: '3',      // 止盈(TP)输入值
+        targetSLValue: '3',      // 止损(SL)输入值
         
         // 时间配置
         sleepTime: 20000,        // 每轮循环休眠时间(毫秒) - 6500秒 = 6500000毫秒
