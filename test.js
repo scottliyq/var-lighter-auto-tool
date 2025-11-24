@@ -619,3 +619,56 @@ function getLastPrice() {
 
 
     clickShortButton();
+
+
+    function hasEthInVirtualList(symbol = 'ETH') {
+        const XPATH = '/html/body/div/main/div/div/div/div[2]/div/div[1]/div/div[3]/div/div[1]/div/div/div[2]/div[1]/div[2]/table/tbody';
+        let tbody;
+        try {
+            tbody = document.evaluate(
+                XPATH,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+        } catch (error) {
+            console.warn('解析仓位列表 tbody XPath 失败:', error);
+            return false;
+        }
+
+        if (!tbody) {
+            console.warn('未找到仓位列表 tbody');
+            return false;
+        }
+
+        // 获取所有 tr 行
+        const rows = tbody.querySelectorAll('tr');
+        if (!rows || rows.length === 0) {
+            console.warn('tbody 中没有 tr 行');
+            return false;
+        }
+
+        const symbolUpper = symbol.toUpperCase();
+        
+        // 遍历每一行
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            // 获取该行中的所有 td
+            const cells = row.querySelectorAll('td');
+            
+            // 遍历每个单元格
+            for (let j = 0; j < cells.length; j++) {
+                const cellText = cells[j].textContent?.trim().toUpperCase();
+                if (cellText && cellText.includes(symbolUpper)) {
+                    console.log(`在 tbody 第${i+1}行第${j+1}列中找到 ${symbol} 仓位`);
+                    return true;
+                }
+            }
+        }
+
+        console.log(`tbody 未检测到 ${symbol} 仓位`);
+        return false;
+    }
+
+    hasEthInVirtualList();

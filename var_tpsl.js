@@ -191,13 +191,13 @@
     
     function hasEthInVirtualList(symbol = 'ETH') {
         const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
-        let snapshot;
+        let iterator = null;
         try {
-            snapshot = document.evaluate(
+            iterator = document.evaluate(
                 XPATH,
                 document,
                 null,
-                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                XPathResult.ORDERED_NODE_ITERATOR_TYPE,
                 null
             );
         } catch (error) {
@@ -205,21 +205,24 @@
             return false;
         }
 
-        if (!snapshot || snapshot.snapshotLength === 0) {
-            console.warn('未找到仓位列表行');
+        if (!iterator) {
+            console.warn('未找到仓位列表');
             return false;
         }
 
-        for (let i = 0; i < snapshot.snapshotLength; i++) {
-            const span = snapshot.snapshotItem(i);
-            const text = span?.textContent?.trim().toUpperCase();
-            if (text && text.includes(symbol)) {
-                console.log('虚拟列表中包含 ETH 仓位');
+        const symbolUpper = symbol.toUpperCase();
+        let span = iterator.iterateNext();
+        
+        while (span) {
+            const text = span.textContent?.trim().toUpperCase();
+            if (text && text.includes(symbolUpper)) {
+                console.log(`虚拟列表中包含 ${symbol} 仓位`);
                 return true;
             }
+            span = iterator.iterateNext();
         }
 
-        console.log('虚拟列表未检测到 ETH 仓位');
+        console.log(`虚拟列表未检测到 ${symbol} 仓位`);
         return false;
     }
 
@@ -350,13 +353,13 @@
 
     function hasEthInVirtualList() {
         const XPATH = '/html/body/div/div[1]/div[1]/div[3]/div[2]/div/div/svelte-virtual-list-viewport/svelte-virtual-list-contents/svelte-virtual-list-row/div/div[1]/a/span';
-        let snapshot;
+        let iterator = null;
         try {
-            snapshot = document.evaluate(
+            iterator = document.evaluate(
                 XPATH,
                 document,
                 null,
-                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                XPathResult.ORDERED_NODE_ITERATOR_TYPE,
                 null
             );
         } catch (error) {
@@ -364,37 +367,58 @@
             return false;
         }
 
-        if (!snapshot || snapshot.snapshotLength === 0) {
-            console.warn('未找到仓位列表行');
+        if (!iterator) {
+            console.warn('未找到仓位列表');
             return false;
         }
 
-        for (let i = 0; i < snapshot.snapshotLength; i++) {
-            const span = snapshot.snapshotItem(i);
-            const text = span?.textContent?.trim().toUpperCase();
-            if (text && text.includes(CONFIG.symbol)) {
+        const symbolUpper = CONFIG.symbol.toUpperCase();
+        let span = iterator.iterateNext();
+        
+        while (span) {
+            const text = span.textContent?.trim().toUpperCase();
+            if (text && text.includes(symbolUpper)) {
                 console.log(`虚拟列表中包含 ${CONFIG.symbol} 仓位`);
                 return true;
             }
+            span = iterator.iterateNext();
         }
 
         console.log(`虚拟列表未检测到 ${CONFIG.symbol} 仓位`);
         return false;
     }
 
-    // 获取当前交易对名称
+    // 获取当前交易对名称(带缓存)
+    let cachedTradingPair = null;
+    let lastPairCheckTime = 0;
+    const PAIR_CACHE_DURATION = 60000; // 缓存60秒
+    
     function getTradingPair() {
-        const submitButtons = Array.from(document.querySelectorAll(CONFIG.submitButtonSelector));
-        const submitButton = submitButtons.find(btn => {
-            return btn.textContent.includes(CONFIG.longButtonText) || btn.textContent.includes(CONFIG.shortButtonText);
-        });
+        const now = Date.now();
+        if (cachedTradingPair && (now - lastPairCheckTime) < PAIR_CACHE_DURATION) {
+            return cachedTradingPair;
+        }
+        
+        const submitButtons = document.querySelectorAll(CONFIG.submitButtonSelector);
+        let submitButton = null;
+        
+        for (let btn of submitButtons) {
+            if (btn.textContent.includes(CONFIG.longButtonText) || btn.textContent.includes(CONFIG.shortButtonText)) {
+                submitButton = btn;
+                break;
+            }
+        }
         
         if (submitButton) {
             const text = submitButton.textContent.trim();
             const pair = text.replace(new RegExp(`[${CONFIG.longButtonText}${CONFIG.shortButtonText}]\\s*`), '');
-            return pair || '未知交易对';
+            cachedTradingPair = pair || '未知交易对';
+        } else {
+            cachedTradingPair = '未知交易对';
         }
-        return '未知交易对';
+        
+        lastPairCheckTime = now;
+        return cachedTradingPair;
     }
     
     // 执行开空仓操作（带重试）
